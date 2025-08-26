@@ -26,7 +26,7 @@ jobs:
           name: Build & push without cache
           command: |
             TAG="${CIRCLE_TAG:-latest}"
-            IMG="docker.io/$DOCKERHUB_USER/comfyui-wan-template"
+            IMG="docker.io/$DOCKERHUB_USER/comfyui-wan"
 
             docker build \
               --progress=plain \
