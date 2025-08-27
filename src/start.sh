@@ -157,8 +157,33 @@ CLIP_VISION_DIR="$NETWORK_VOLUME/ComfyUI/models/clip_vision"
 VAE_DIR="$NETWORK_VOLUME/ComfyUI/models/vae"
 LORAS_DIR="$NETWORK_VOLUME/ComfyUI/models/loras"
 
-# Handle full download (with SDXL)
+# Download 480p native models
+if [ "$download_480p_native_models" == "true" ]; then
+    echo "Downloading 480p native models..."
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_i2v_480p_14B_bf16.safetensors"
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_14B_bf16.safetensors"
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_1.3B_bf16.safetensors"
+fi
 
+if [ "$debug_models" == "true" ]; then
+    echo "Downloading 480p native models..."
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_i2v_480p_14B_fp16.safetensors"
+fi
+
+# Handle full download (with SDXL)
+if [ "$download_wan_fun_and_sdxl_helper" == "true" ]; then
+    echo "Downloading Wan Fun 14B Model"
+
+    download_model "https://huggingface.co/alibaba-pai/Wan2.1-Fun-14B-Control/resolve/main/diffusion_pytorch_model.safetensors" "$DIFFUSION_MODELS_DIR/diffusion_pytorch_model.safetensors"
+
+    UNION_DIR="$NETWORK_VOLUME/ComfyUI/models/controlnet/SDXL/controlnet-union-sdxl-1.0"
+    mkdir -p "$UNION_DIR"
+    if [ ! -f "$UNION_DIR/diffusion_pytorch_model_promax.safetensors" ]; then
+        download_model "https://huggingface.co/xinsir/controlnet-union-sdxl-1.0/resolve/main/diffusion_pytorch_model_promax.safetensors" "$UNION_DIR/diffusion_pytorch_model_promax.safetensors"
+    fi
+fi
+
+# if [ "$download_wan22" == "true" ]; then
 echo "Downloading Wan 2.2"
 
 # download_model "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.2_t2v_high_noise_14B_fp16.safetensors"
@@ -172,6 +197,38 @@ download_model "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/reso
 # download_model "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.2_ti2v_5B_fp16.safetensors"
 
 download_model "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors" "$VAE_DIR/wan2.2_vae.safetensors"
+
+# fi
+
+if [ "$download_vace" == "true" ]; then
+    echo "Downloading Wan 1.3B and 14B"
+
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_1.3B_bf16.safetensors"
+
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_14B_bf16.safetensors"
+
+    echo "Downloading VACE 14B Model"
+
+    download_model "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-VACE_module_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/Wan2_1-VACE_module_14B_bf16.safetensors"
+
+    download_model "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-VACE_module_1_3B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/Wan2_1-VACE_module_1_3B_bf16.safetensors"
+
+fi
+
+if [ "$download_vace_debug" == "true" ]; then
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_vace_14B_fp16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_vace_14B_fp16.safetensors"
+fi
+
+# Download 720p native models
+if [ "$download_720p_native_models" == "true" ]; then
+    echo "Downloading 720p native models..."
+
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_720p_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_i2v_720p_14B_bf16.safetensors"
+
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_14B_bf16.safetensors"
+
+    download_model "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_bf16.safetensors" "$DIFFUSION_MODELS_DIR/wan2.1_t2v_1.3B_bf16.safetensors"
+fi
 
 echo "Downloading optimization loras"
 download_model "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan21_CausVid_14B_T2V_lora_rank32.safetensors" "$LORAS_DIR/Wan21_CausVid_14B_T2V_lora_rank32.safetensors"
@@ -374,20 +431,52 @@ done
 # Start ComfyUI
 
 echo "▶️  Starting ComfyUI"
-if [ "$enable_optimizations" = "false" ]; then
-    python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen
-else
-    nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --use-sage-attention >"$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
-    # python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --use-sage-attention
-    until curl --silent --fail "$URL" --output /dev/null; do
-        echo "🔄  ComfyUI Starting Up... You can view the startup logs here: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
-        sleep 2
-    done
 
-    # Only show success message if curl succeeded
-    if curl --silent --fail "$URL" --output /dev/null; then
-        echo "🚀 ComfyUI is UP"
+# Check if sageattention is installed and available
+if python3 -c "import sageattention" 2>/dev/null; then
+    echo "🔧 SageAttention detected - using optimized mode"
+    nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen --use-sage-attention >"$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
+else
+    echo "**************************************************************"
+    echo "⚠️  WARNING: SageAttention not available - using standard mode"
+    echo "🐌 This will result in slower video generation performance"
+    echo ""
+    echo "💡 To fix this issue:"
+    echo "   • Deploy using another GPU (Recommended: H100/H200/5090/PRO 6000)"
+    echo "   • Make sure you select CUDA version 12.8 or 12.9"
+    echo "   • Check the additional filters tab before deploying"
+    echo "**************************************************************"
+    nohup python3 "$NETWORK_VOLUME/ComfyUI/main.py" --listen >"$NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log" 2>&1 &
+fi
+
+# Counter for timeout
+counter=0
+max_wait=45
+
+until curl --silent --fail "$URL" --output /dev/null; do
+    if [ $counter -ge $max_wait ]; then
+        echo "⚠️  ComfyUI should be up by now. If it's not running, there's probably an error."
+        echo ""
+        echo "🛠️  Troubleshooting Tips:"
+        echo "1. Make sure that your CUDA Version is set to 12.8/12.9 by selecting that in the additional filters tab before deploying the template"
+        echo "2. If you are deploying using network storage, try deploying without it"
+        echo "3. If you are using a B200 GPU, it is currently not supported"
+        echo "4. If all else fails, open the web terminal by clicking \"connect\", \"enable web terminal\" and running:"
+        echo "   cat comfyui_${RUNPOD_POD_ID}_nohup.log"
+        echo "   This should show a ComfyUI error. Please paste the error in HearmemanAI Discord Server for assistance."
+        echo ""
+        echo "📋 Startup logs location: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
+        break
     fi
 
-    sleep infinity
+    echo "🔄  ComfyUI Starting Up... You can view the startup logs here: $NETWORK_VOLUME/comfyui_${RUNPOD_POD_ID}_nohup.log"
+    sleep 2
+    counter=$((counter + 2))
+done
+
+# Only show success message if curl succeeded
+if curl --silent --fail "$URL" --output /dev/null; then
+    echo "🚀 ComfyUI is UP"
 fi
+
+sleep infinity
