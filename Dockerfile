@@ -3,96 +3,115 @@ FROM nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 AS base
 
 # Consolidated environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
-   PIP_PREFER_BINARY=1 \
-   PYTHONUNBUFFERED=1 \
-   CMAKE_BUILD_PARALLEL_LEVEL=8
+    PYTHONUNBUFFERED=1 \
+    CMAKE_BUILD_PARALLEL_LEVEL=8 \
+    UV_CACHE_DIR=/opt/uv-cache \
+    UV_LINK_MODE=copy
 
+# Install system dependencies and uv in a single layer
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.12 python3.12-venv python3.12-dev \
-        python3-pip \
         curl ffmpeg ninja-build git aria2 git-lfs wget vim \
         libgl1 libglib2.0-0 build-essential gcc && \
     \
-    # make Python3.12 the default python & pip
-    ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip && \
+    # Install uv for faster Python package management
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
     \
-    python3.12 -m venv /opt/venv && \
+    # make Python3.12 the default python
+    ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    \
+    # Create virtual environment with uv
+    /root/.cargo/bin/uv venv /opt/venv --python python3.12 && \
     \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Use the virtual environment
-ENV PATH="/opt/venv/bin:$PATH"
+# Use the virtual environment and add uv to PATH
+ENV PATH="/opt/venv/bin:/root/.cargo/bin:$PATH"
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --pre torch torchvision torchaudio \
+# Install PyTorch with uv (faster resolution and installation)
+RUN --mount=type=cache,target=/opt/uv-cache \
+    uv pip install --pre torch torchvision torchaudio \
         --index-url https://download.pytorch.org/whl/nightly/cu128
 
-# Core Python tooling
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install packaging setuptools wheel
-
-# Runtime libraries
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install pyyaml gdown triton comfy-cli
+# Install all Python dependencies in one layer for better caching
+RUN --mount=type=cache,target=/opt/uv-cache \
+    uv pip install \
+        packaging setuptools wheel \
+        pyyaml gdown triton comfy-cli \
+        opencv-python
 
 # ------------------------------------------------------------
 # ComfyUI install
 # ------------------------------------------------------------
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/opt/uv-cache \
     /usr/bin/yes | comfy --workspace /ComfyUI install --nvidia
 
-FROM base AS final
-# Make sure to use the virtual environment here too
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install opencv-python
-
-RUN for repo in \
-    https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git \
-    https://github.com/kijai/ComfyUI-KJNodes.git \
-    https://github.com/rgthree/rgthree-comfy.git \
-    https://github.com/JPS-GER/ComfyUI_JPS-Nodes.git \
-    https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes.git \
-    https://github.com/Jordach/comfy-plasma.git \
-    https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
-    https://github.com/bash-j/mikey_nodes.git \
-    https://github.com/ltdrdata/ComfyUI-Impact-Pack.git \
-    https://github.com/Fannovel16/comfyui_controlnet_aux.git \
-    https://github.com/yolain/ComfyUI-Easy-Use.git \
-    https://github.com/kijai/ComfyUI-Florence2.git \
-    https://github.com/ShmuelRonen/ComfyUI-LatentSyncWrapper.git \
-    https://github.com/WASasquatch/was-node-suite-comfyui.git \
-    https://github.com/theUpsider/ComfyUI-Logic.git \
-    https://github.com/cubiq/ComfyUI_essentials.git \
-    https://github.com/chrisgoringe/cg-image-picker.git \
-    https://github.com/chflame163/ComfyUI_LayerStyle.git \
-    https://github.com/chrisgoringe/cg-use-everywhere.git \
-    https://github.com/ClownsharkBatwing/RES4LYF \
-    https://github.com/welltop-cn/ComfyUI-TeaCache.git \
-    https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git \
-    https://github.com/Jonseed/ComfyUI-Detail-Daemon.git \
-    https://github.com/kijai/ComfyUI-WanVideoWrapper.git \
-    https://github.com/chflame163/ComfyUI_LayerStyle_Advance.git \
-    https://github.com/BadCafeCode/masquerade-nodes-comfyui.git \
-    https://github.com/1038lab/ComfyUI-RMBG.git \
-    https://github.com/M1kep/ComfyLiterals.git; \
-    do \
-        cd /ComfyUI/custom_nodes; \
+# ------------------------------------------------------------
+# Custom nodes installation (optimized)
+# ------------------------------------------------------------
+RUN --mount=type=cache,target=/opt/uv-cache \
+    cd /ComfyUI/custom_nodes && \
+    \
+    # Define repositories
+    repos="ssitu/ComfyUI_UltimateSDUpscale.git \
+           kijai/ComfyUI-KJNodes.git \
+           rgthree/rgthree-comfy.git \
+           JPS-GER/ComfyUI_JPS-Nodes.git \
+           Suzie1/ComfyUI_Comfyroll_CustomNodes.git \
+           Jordach/comfy-plasma.git \
+           Kosinkadink/ComfyUI-VideoHelperSuite.git \
+           bash-j/mikey_nodes.git \
+           ltdrdata/ComfyUI-Impact-Pack.git \
+           Fannovel16/comfyui_controlnet_aux.git \
+           yolain/ComfyUI-Easy-Use.git \
+           kijai/ComfyUI-Florence2.git \
+           ShmuelRonen/ComfyUI-LatentSyncWrapper.git \
+           WASasquatch/was-node-suite-comfyui.git \
+           theUpsider/ComfyUI-Logic.git \
+           cubiq/ComfyUI_essentials.git \
+           chrisgoringe/cg-image-picker.git \
+           chflame163/ComfyUI_LayerStyle.git \
+           chrisgoringe/cg-use-everywhere.git \
+           ClownsharkBatwing/RES4LYF \
+           welltop-cn/ComfyUI-TeaCache.git \
+           Fannovel16/ComfyUI-Frame-Interpolation.git \
+           Jonseed/ComfyUI-Detail-Daemon.git \
+           kijai/ComfyUI-WanVideoWrapper.git \
+           chflame163/ComfyUI_LayerStyle_Advance.git \
+           BadCafeCode/masquerade-nodes-comfyui.git \
+           1038lab/ComfyUI-RMBG.git \
+           M1kep/ComfyLiterals.git"; \
+    \
+    # Clone repositories in parallel (background processes)
+    for repo in $repos; do \
+        repo_url="https://github.com/${repo}"; \
         repo_dir=$(basename "$repo" .git); \
-        if [ "$repo" = "https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git" ]; then \
-            git clone --recursive "$repo"; \
+        if [ "$repo" = "ssitu/ComfyUI_UltimateSDUpscale.git" ]; then \
+            git clone --recursive --depth 1 "$repo_url" & \
         else \
-            git clone "$repo"; \
+            git clone --depth 1 "$repo_url" & \
         fi; \
-        if [ -f "/ComfyUI/custom_nodes/$repo_dir/requirements.txt" ]; then \
-            pip install -r "/ComfyUI/custom_nodes/$repo_dir/requirements.txt"; \
+    done && \
+    \
+    # Wait for all clones to complete
+    wait && \
+    \
+    # Collect and install all requirements in one go
+    find . -name "requirements.txt" -exec cat {} \; | sort -u > /tmp/all-requirements.txt && \
+    if [ -s /tmp/all-requirements.txt ]; then \
+        uv pip install -r /tmp/all-requirements.txt; \
+    fi && \
+    \
+    # Run install scripts
+    for repo in $repos; do \
+        repo_dir=$(basename "$repo" .git); \
+        if [ -f "$repo_dir/install.py" ]; then \
+            python "$repo_dir/install.py"; \
         fi; \
-        if [ -f "/ComfyUI/custom_nodes/$repo_dir/install.py" ]; then \
-            python "/ComfyUI/custom_nodes/$repo_dir/install.py"; \
-        fi; \
-    done
+    done && \
+    rm -f /tmp/all-requirements.txt
 
 COPY src/start_script.sh /start_script.sh
 RUN chmod +x /start_script.sh
