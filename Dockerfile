@@ -62,9 +62,15 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     (cd /tmp/sage-build-cache/SageAttention && git pull) && \
     cp -r /tmp/sage-build-cache/SageAttention /tmp/SageAttention && \
     cd /tmp/SageAttention && \
-    # Set CUDA architectures for RTX 4090 (Ada Lovelace) and RTX 5090 (Blackwell)
-    # 89 = RTX 4090, 90 = RTX 5090 (future-proofing)
-    TORCH_CUDA_ARCH_LIST="8.9;9.0" CUDA_VISIBLE_DEVICES="" python setup.py install && \
+    # Patch setup.py to bypass GPU detection and force architecture
+    # sed -i 's/raise RuntimeError("No GPUs found.*$/pass  # Skip GPU detection in Docker build/' setup.py && \
+    # Set multiple environment variables to force CUDA architecture detection
+    export TORCH_CUDA_ARCH_LIST="8.9;9.0" && \
+    export CUDA_VISIBLE_DEVICES="" && \
+    export FORCE_CUDA=1 && \
+    export CUDA_ARCH="8.9;9.0" && \
+    export NVCC_GENCODE="-gencode arch=compute_89,code=sm_89 -gencode arch=compute_90,code=sm_90" && \
+    python setup.py install && \
     cd / && \
     uv pip install --no-cache-dir triton && \
     rm -rf /tmp/SageAttention
