@@ -23,7 +23,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ln -sf /usr/bin/python3.12 /usr/bin/python && \
     \
     # Create virtual environment with uv
-    uv venv /opt/venv --python python3.12 && \
+    $HOME/.local/bin/uv venv /opt/venv --python python3.12 && \
     \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -32,12 +32,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch with uv (faster resolution and installation)
 RUN --mount=type=cache,target=/opt/uv-cache \
-    uv pip install --pre torch torchvision torchaudio \
+    $HOME/.local/bin/uv pip install --pre torch torchvision torchaudio \
         --index-url https://download.pytorch.org/whl/nightly/cu128
 
 # Install all Python dependencies in one layer for better caching
 RUN --mount=type=cache,target=/opt/uv-cache \
-    uv pip install \
+    $HOME/.local/bin/uv pip install \
         packaging setuptools wheel \
         pyyaml gdown triton comfy-cli \
         opencv-python
@@ -101,7 +101,7 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     # Collect and install all requirements in one go
     find . -name "requirements.txt" -exec cat {} \; | sort -u > /tmp/all-requirements.txt && \
     if [ -s /tmp/all-requirements.txt ]; then \
-        uv pip install -r /tmp/all-requirements.txt; \
+        $HOME/.local/bin/uv pip install -r /tmp/all-requirements.txt; \
     fi && \
     \
     # Run install scripts
