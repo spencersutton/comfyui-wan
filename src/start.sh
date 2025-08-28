@@ -196,21 +196,6 @@ echo "Build complete"
 
 echo "All downloads completed!"
 
-echo "Downloading upscale models"
-mkdir -p "$NETWORK_VOLUME/ComfyUI/models/upscale_models"
-if [ ! -f "$NETWORK_VOLUME/ComfyUI/models/upscale_models/4xLSDIR.pth" ]; then
-    if [ -f "/4xLSDIR.pth" ]; then
-        mv "/4xLSDIR.pth" "$NETWORK_VOLUME/ComfyUI/models/upscale_models/4xLSDIR.pth"
-        echo "Moved 4xLSDIR.pth to the correct location."
-    else
-        echo "4xLSDIR.pth not found in the root directory."
-    fi
-else
-    echo "4xLSDIR.pth already exists. Skipping."
-fi
-
-echo "Finished downloading models!"
-
 echo "Checking and copying workflow..."
 mkdir -p "$WORKFLOW_DIR"
 
