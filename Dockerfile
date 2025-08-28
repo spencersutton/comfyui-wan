@@ -8,105 +8,135 @@ ENV DEBIAN_FRONTEND=noninteractive \
     UV_CACHE_DIR=/opt/uv-cache \
     UV_LINK_MODE=copy
 
-# Install system dependencies and uv in a single layer
+# Install system dependencies and uv in separate cached layers
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         python3.12 python3.12-venv python3.12-dev python3-pip \
         curl ffmpeg ninja-build git aria2 git-lfs wget vim \
-        libgl1 libglib2.0-0 build-essential gcc && \
-    \
-    # Install uv for faster Python package management
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    \
-    # make Python3.12 the default python
-    ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    \
-    # Create virtual environment with uv
-    $HOME/.local/bin/uv venv /opt/venv --python python3.12 && \
-    \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+        libgl1 libglib2.0-0 build-essential gcc
+
+# Install uv in separate layer for better caching
+RUN --mount=type=cache,target=/root/.cache \
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Setup Python environment
+RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
+    $HOME/.local/bin/uv venv /opt/venv --python python3.12
 
 # Use the virtual environment and add uv to PATH
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$HOME/.local/bin:$PATH"
 
-# Install PyTorch with uv (faster resolution and installation)
+# Create requirements files for better layer caching
+RUN echo "torch" > /tmp/pytorch-requirements.txt && \
+    echo "torchvision" >> /tmp/pytorch-requirements.txt && \
+    echo "torchaudio" >> /tmp/pytorch-requirements.txt
+
+# Install PyTorch in separate layer (most stable, changes infrequently)
 RUN --mount=type=cache,target=/opt/uv-cache \
-    $HOME/.local/bin/uv pip install --pre torch torchvision torchaudio \
+    uv pip install --pre -r /tmp/pytorch-requirements.txt \
         --index-url https://download.pytorch.org/whl/nightly/cu128
 
-# Install all Python dependencies in one layer for better caching
+# Create base dependencies requirements file
+RUN echo "packaging" > /tmp/base-requirements.txt && \
+    echo "setuptools" >> /tmp/base-requirements.txt && \
+    echo "wheel" >> /tmp/base-requirements.txt && \
+    echo "pip" >> /tmp/base-requirements.txt && \
+    echo "pyyaml" >> /tmp/base-requirements.txt && \
+    echo "gdown" >> /tmp/base-requirements.txt && \
+    echo "triton" >> /tmp/base-requirements.txt && \
+    echo "comfy-cli" >> /tmp/base-requirements.txt && \
+    echo "opencv-python" >> /tmp/base-requirements.txt
+
+# Install base dependencies in separate layer
 RUN --mount=type=cache,target=/opt/uv-cache \
-    $HOME/.local/bin/uv pip install \
-        packaging setuptools wheel pip \
-        pyyaml gdown triton comfy-cli \
-        opencv-python
+    uv pip install -r /tmp/base-requirements.txt
 
 # ------------------------------------------------------------
-# SageAttention build (moved from startup script for faster container starts)
+# SageAttention build (cached layer - changes infrequently)
 # ------------------------------------------------------------
 RUN --mount=type=cache,target=/opt/uv-cache \
-    git clone https://github.com/thu-ml/SageAttention.git /tmp/SageAttention && \
+    --mount=type=cache,target=/tmp/sage-build-cache \
+    git clone https://github.com/thu-ml/SageAttention.git /tmp/sage-build-cache/SageAttention || \
+    (cd /tmp/sage-build-cache/SageAttention && git pull) && \
+    cp -r /tmp/sage-build-cache/SageAttention /tmp/SageAttention && \
     cd /tmp/SageAttention && \
     # Set CUDA architectures for RTX 4090 (Ada Lovelace) and RTX 5090 (Blackwell)
     # 89 = RTX 4090, 90 = RTX 5090 (future-proofing)
     TORCH_CUDA_ARCH_LIST="8.9;9.0" CUDA_VISIBLE_DEVICES="" python setup.py install && \
     cd / && \
-    $HOME/.local/bin/uv pip install --no-cache-dir triton && \
+    uv pip install --no-cache-dir triton && \
     rm -rf /tmp/SageAttention
 
 # ------------------------------------------------------------
-# ComfyUI install
+# ComfyUI install (cached layer)
 # ------------------------------------------------------------
 RUN --mount=type=cache,target=/opt/uv-cache \
     /usr/bin/yes | comfy --workspace /ComfyUI install --nvidia
 
 # ------------------------------------------------------------
-# Custom nodes installation (optimized)
+# Custom nodes repositories list (separate layer for better caching)
+# ------------------------------------------------------------
+RUN echo "ssitu/ComfyUI_UltimateSDUpscale.git" > /tmp/repos.txt && \
+    echo "kijai/ComfyUI-KJNodes.git" >> /tmp/repos.txt && \
+    echo "rgthree/rgthree-comfy.git" >> /tmp/repos.txt && \
+    echo "JPS-GER/ComfyUI_JPS-Nodes.git" >> /tmp/repos.txt && \
+    echo "Suzie1/ComfyUI_Comfyroll_CustomNodes.git" >> /tmp/repos.txt && \
+    echo "Jordach/comfy-plasma.git" >> /tmp/repos.txt && \
+    echo "Kosinkadink/ComfyUI-VideoHelperSuite.git" >> /tmp/repos.txt && \
+    echo "bash-j/mikey_nodes.git" >> /tmp/repos.txt && \
+    echo "ltdrdata/ComfyUI-Impact-Pack.git" >> /tmp/repos.txt && \
+    echo "Fannovel16/comfyui_controlnet_aux.git" >> /tmp/repos.txt && \
+    echo "yolain/ComfyUI-Easy-Use.git" >> /tmp/repos.txt && \
+    echo "kijai/ComfyUI-Florence2.git" >> /tmp/repos.txt && \
+    echo "ShmuelRonen/ComfyUI-LatentSyncWrapper.git" >> /tmp/repos.txt && \
+    echo "WASasquatch/was-node-suite-comfyui.git" >> /tmp/repos.txt && \
+    echo "theUpsider/ComfyUI-Logic.git" >> /tmp/repos.txt && \
+    echo "cubiq/ComfyUI_essentials.git" >> /tmp/repos.txt && \
+    echo "chrisgoringe/cg-image-picker.git" >> /tmp/repos.txt && \
+    echo "chflame163/ComfyUI_LayerStyle.git" >> /tmp/repos.txt && \
+    echo "chrisgoringe/cg-use-everywhere.git" >> /tmp/repos.txt && \
+    echo "ClownsharkBatwing/RES4LYF" >> /tmp/repos.txt && \
+    echo "welltop-cn/ComfyUI-TeaCache.git" >> /tmp/repos.txt && \
+    echo "Fannovel16/ComfyUI-Frame-Interpolation.git" >> /tmp/repos.txt && \
+    echo "Jonseed/ComfyUI-Detail-Daemon.git" >> /tmp/repos.txt && \
+    echo "kijai/ComfyUI-WanVideoWrapper.git" >> /tmp/repos.txt && \
+    echo "chflame163/ComfyUI_LayerStyle_Advance.git" >> /tmp/repos.txt && \
+    echo "BadCafeCode/masquerade-nodes-comfyui.git" >> /tmp/repos.txt && \
+    echo "1038lab/ComfyUI-RMBG.git" >> /tmp/repos.txt && \
+    echo "M1kep/ComfyLiterals.git" >> /tmp/repos.txt
+
+# ------------------------------------------------------------
+# Custom nodes installation (optimized with better caching)
 # ------------------------------------------------------------
 RUN --mount=type=cache,target=/opt/uv-cache \
+    --mount=type=cache,target=/tmp/git-cache \
     cd /ComfyUI/custom_nodes && \
     \
-    # Define repositories
-    repos="ssitu/ComfyUI_UltimateSDUpscale.git \
-           kijai/ComfyUI-KJNodes.git \
-           rgthree/rgthree-comfy.git \
-           JPS-GER/ComfyUI_JPS-Nodes.git \
-           Suzie1/ComfyUI_Comfyroll_CustomNodes.git \
-           Jordach/comfy-plasma.git \
-           Kosinkadink/ComfyUI-VideoHelperSuite.git \
-           bash-j/mikey_nodes.git \
-           ltdrdata/ComfyUI-Impact-Pack.git \
-           Fannovel16/comfyui_controlnet_aux.git \
-           yolain/ComfyUI-Easy-Use.git \
-           kijai/ComfyUI-Florence2.git \
-           ShmuelRonen/ComfyUI-LatentSyncWrapper.git \
-           WASasquatch/was-node-suite-comfyui.git \
-           theUpsider/ComfyUI-Logic.git \
-           cubiq/ComfyUI_essentials.git \
-           chrisgoringe/cg-image-picker.git \
-           chflame163/ComfyUI_LayerStyle.git \
-           chrisgoringe/cg-use-everywhere.git \
-           ClownsharkBatwing/RES4LYF \
-           welltop-cn/ComfyUI-TeaCache.git \
-           Fannovel16/ComfyUI-Frame-Interpolation.git \
-           Jonseed/ComfyUI-Detail-Daemon.git \
-           kijai/ComfyUI-WanVideoWrapper.git \
-           chflame163/ComfyUI_LayerStyle_Advance.git \
-           BadCafeCode/masquerade-nodes-comfyui.git \
-           1038lab/ComfyUI-RMBG.git \
-           M1kep/ComfyLiterals.git"; \
-    \
-    # Clone repositories in parallel (background processes)
-    for repo in $repos; do \
+    # Clone repositories in parallel with persistent cache
+    while IFS= read -r repo; do \
         repo_url="https://github.com/${repo}"; \
         repo_dir=$(basename "$repo" .git); \
-        if [ "$repo" = "ssitu/ComfyUI_UltimateSDUpscale.git" ]; then \
-            git clone --recursive --depth 1 "$repo_url" & \
+        cache_dir="/tmp/git-cache/$repo_dir"; \
+        \
+        # Use cached clone if available, otherwise clone fresh
+        if [ -d "$cache_dir/.git" ]; then \
+            echo "Using cached repository for $repo_dir"; \
+            cp -r "$cache_dir" "$repo_dir" && \
+            cd "$repo_dir" && git pull --depth 1 && cd ..; \
         else \
-            git clone --depth 1 "$repo_url" & \
-        fi; \
-    done && \
+            echo "Fresh clone for $repo_dir"; \
+            mkdir -p "$(dirname "$cache_dir")"; \
+            if [ "$repo" = "ssitu/ComfyUI_UltimateSDUpscale.git" ]; then \
+                git clone --recursive --depth 1 "$repo_url" "$repo_dir" && \
+                cp -r "$repo_dir" "$cache_dir"; \
+            else \
+                git clone --depth 1 "$repo_url" "$repo_dir" && \
+                cp -r "$repo_dir" "$cache_dir"; \
+            fi; \
+        fi & \
+    done < /tmp/repos.txt && \
     \
     # Wait for all clones to complete
     wait && \
@@ -123,17 +153,17 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     if [ -s /tmp/clean-requirements.txt ]; then \
         echo "Installing requirements from all custom nodes:" && \
         cat /tmp/clean-requirements.txt && \
-        $HOME/.local/bin/uv pip install -r /tmp/clean-requirements.txt; \
+        uv pip install -r /tmp/clean-requirements.txt; \
     fi && \
     \
     # Run install scripts
-    for repo in $repos; do \
+    while IFS= read -r repo; do \
         repo_dir=$(basename "$repo" .git); \
         if [ -f "$repo_dir/install.py" ]; then \
             python "$repo_dir/install.py"; \
         fi; \
-    done && \
-    rm -f /tmp/all-requirements.txt /tmp/clean-requirements.txt
+    done < /tmp/repos.txt && \
+    rm -f /tmp/all-requirements.txt /tmp/clean-requirements.txt /tmp/repos.txt
 
 COPY src/start_script.sh /start_script.sh
 RUN chmod +x /start_script.sh
