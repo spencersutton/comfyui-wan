@@ -37,59 +37,7 @@ else
     echo "Directory already exists, skipping move."
 fi
 
-echo "Downloading CivitAI download script to /usr/local/bin"
-git clone "https://github.com/Hearmeman24/CivitAI_Downloader.git" || {
-    echo "Git clone failed"
-    exit 1
-}
-mv CivitAI_Downloader/download_with_aria.py "/usr/local/bin/" || {
-    echo "Move failed"
-    exit 1
-}
-chmod +x "/usr/local/bin/download_with_aria.py" || {
-    echo "Chmod failed"
-    exit 1
-}
-rm -rf CivitAI_Downloader # Clean up the cloned repo
-pip install onnxruntime-gpu &
-
-if [ ! -d "$NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper" ]; then
-    cd $NETWORK_VOLUME/ComfyUI/custom_nodes
-    git clone https://github.com/kijai/ComfyUI-WanVideoWrapper.git
-else
-    echo "Updating WanVideoWrapper"
-    cd $NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper
-    git pull
-fi
-if [ ! -d "$NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-KJNodes" ]; then
-    cd $NETWORK_VOLUME/ComfyUI/custom_nodes
-    git clone https://github.com/kijai/ComfyUI-KJNodes.git
-else
-    echo "Updating KJ Nodes"
-    cd $NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-KJNodes
-    git pull
-fi
-
-echo "🔧 Installing KJNodes packages..."
-pip install --no-cache-dir -r $NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-KJNodes/requirements.txt &
-KJ_PID=$!
-
-echo "🔧 Installing WanVideoWrapper packages..."
-pip install --no-cache-dir -r $NETWORK_VOLUME/ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper/requirements.txt &
-WAN_PID=$!
-
 export change_preview_method="true"
-echo "Building SageAttention in the background"
-(
-    git clone https://github.com/thu-ml/SageAttention.git
-    cd SageAttention || exit 1
-    python3 setup.py install
-    cd /
-    pip install --no-cache-dir triton
-) &>/var/log/sage_build.log & # run in background, log output
-
-BUILD_PID=$!
-echo "Background build started (PID: $BUILD_PID)"
 
 # Change to the directory
 cd "$CUSTOM_NODES_DIR" || exit 1
@@ -171,14 +119,6 @@ while pgrep -x "aria2c" >/dev/null; do
 done
 
 echo "✅ All models downloaded successfully!"
-
-# poll every 5 s until the PID is gone
-while kill -0 "$BUILD_PID" 2>/dev/null; do
-    echo "🛠️ Building SageAttention in progress... (this can take around 5 minutes)"
-    sleep 10
-done
-
-echo "Build complete"
 
 echo "All downloads completed!"
 

@@ -41,6 +41,17 @@ RUN --mount=type=cache,target=/opt/uv-cache \
         opencv-python
 
 # ------------------------------------------------------------
+# SageAttention build (moved from startup script for faster container starts)
+# ------------------------------------------------------------
+RUN --mount=type=cache,target=/opt/uv-cache \
+    git clone https://github.com/thu-ml/SageAttention.git /tmp/SageAttention && \
+    cd /tmp/SageAttention && \
+    python setup.py install && \
+    cd / && \
+    $HOME/.local/bin/uv pip install --no-cache-dir triton && \
+    rm -rf /tmp/SageAttention
+
+# ------------------------------------------------------------
 # ComfyUI install
 # ------------------------------------------------------------
 RUN --mount=type=cache,target=/opt/uv-cache \
@@ -96,10 +107,19 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     # Wait for all clones to complete
     wait && \
     \
-    # Collect and install all requirements in one go
-    find . -name "requirements.txt" -exec cat {} \; | sort -u > /tmp/all-requirements.txt && \
-    if [ -s /tmp/all-requirements.txt ]; then \
-        $HOME/.local/bin/uv pip install -r /tmp/all-requirements.txt; \
+    # Collect and install all requirements with better error handling
+    find . -name "requirements.txt" -print0 | while IFS= read -r -d '' file; do \
+        echo "# From: $file" >> /tmp/all-requirements.txt; \
+        cat "$file" >> /tmp/all-requirements.txt; \
+        echo "" >> /tmp/all-requirements.txt; \
+    done && \
+    # Clean up the requirements file and remove duplicates/invalid lines
+    grep -v '^#' /tmp/all-requirements.txt | grep -v '^$' | sort -u | \
+    sed 's/[[:space:]]*$//' | grep -E '^[a-zA-Z0-9_.-]+.*' > /tmp/clean-requirements.txt && \
+    if [ -s /tmp/clean-requirements.txt ]; then \
+        echo "Installing requirements from all custom nodes:" && \
+        cat /tmp/clean-requirements.txt && \
+        $HOME/.local/bin/uv pip install -r /tmp/clean-requirements.txt; \
     fi && \
     \
     # Run install scripts
@@ -109,7 +129,7 @@ RUN --mount=type=cache,target=/opt/uv-cache \
             python "$repo_dir/install.py"; \
         fi; \
     done && \
-    rm -f /tmp/all-requirements.txt
+    rm -f /tmp/all-requirements.txt /tmp/clean-requirements.txt
 
 COPY src/start_script.sh /start_script.sh
 RUN chmod +x /start_script.sh
