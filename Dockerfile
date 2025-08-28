@@ -23,10 +23,10 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # Setup Python environment
 RUN ln -sf /usr/bin/python3.12 /usr/bin/python && \
-    $HOME/.local/bin/uv venv /opt/venv --python python3.12
+    /root/.local/bin/uv venv /opt/venv --python python3.12
 
 # Use the virtual environment and add uv to PATH
-ENV PATH="/opt/venv/bin:$HOME/.local/bin:$PATH"
+ENV PATH="/opt/venv/bin:/root/.local/bin:$PATH"
 
 # Create requirements files for better layer caching
 RUN echo "torch" > /tmp/pytorch-requirements.txt && \
