@@ -54,25 +54,21 @@ RUN --mount=type=cache,target=/opt/uv-cache \
     uv pip install -r /tmp/base-requirements.txt
 
 # ------------------------------------------------------------
-# SageAttention build (cached layer - changes infrequently)
+# SageAttention build (cached layer - changes infrequently)  
+# Supporting RTX 4090 (8.9) and RTX 5090 (9.0)
 # ------------------------------------------------------------
+ENV TORCH_CUDA_ARCH_LIST="8.9;9.0"
+
 RUN --mount=type=cache,target=/opt/uv-cache \
     --mount=type=cache,target=/tmp/sage-build-cache \
     git clone https://github.com/thu-ml/SageAttention.git /tmp/sage-build-cache/SageAttention || \
     (cd /tmp/sage-build-cache/SageAttention && git pull) && \
     cp -r /tmp/sage-build-cache/SageAttention /tmp/SageAttention && \
     cd /tmp/SageAttention && \
-    # Patch setup.py to bypass GPU detection and force architecture
-    # sed -i 's/raise RuntimeError("No GPUs found.*$/pass  # Skip GPU detection in Docker build/' setup.py && \
-    # Set multiple environment variables to force CUDA architecture detection
-    export TORCH_CUDA_ARCH_LIST="8.9;9.0" && \
-    export CUDA_VISIBLE_DEVICES="" && \
-    export FORCE_CUDA=1 && \
-    export CUDA_ARCH="8.9;9.0" && \
-    export NVCC_GENCODE="-gencode arch=compute_89,code=sm_89 -gencode arch=compute_90,code=sm_90" && \
-    python setup.py install && \
+    # Override compute_capabilities using the cleaner GitHub solution
+    sed -i "/compute_capabilities = set()/a compute_capabilities = {\"8.9\", \"9.0\"}" setup.py && \
+    uv pip install . --no-build-isolation && \
     cd / && \
-    uv pip install --no-cache-dir triton && \
     rm -rf /tmp/SageAttention
 
 # ------------------------------------------------------------
