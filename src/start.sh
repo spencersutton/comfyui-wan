@@ -13,20 +13,6 @@ else
     echo "additional_params.sh not found in /workspace. Skipping..."
 fi
 
-if ! which aria2 >/dev/null 2>&1; then
-    echo "Installing aria2..."
-    apt-get update && apt-get install -y aria2
-else
-    echo "aria2 is already installed"
-fi
-
-if ! which curl >/dev/null 2>&1; then
-    echo "Installing curl..."
-    apt-get update && apt-get install -y curl
-else
-    echo "curl is already installed"
-fi
-
 # Set the network volume path
 NETWORK_VOLUME="/workspace"
 URL="http://127.0.0.1:8188"
