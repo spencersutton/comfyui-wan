@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/opt/uv-cache \
 # Install all Python dependencies in one layer for better caching
 RUN --mount=type=cache,target=/opt/uv-cache \
     $HOME/.local/bin/uv pip install \
-        packaging setuptools wheel \
+        packaging setuptools wheel pip \
         pyyaml gdown triton comfy-cli \
         opencv-python
 
