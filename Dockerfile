@@ -46,7 +46,9 @@ RUN --mount=type=cache,target=/opt/uv-cache \
 RUN --mount=type=cache,target=/opt/uv-cache \
     git clone https://github.com/thu-ml/SageAttention.git /tmp/SageAttention && \
     cd /tmp/SageAttention && \
-    python setup.py install && \
+    # Set CUDA architectures for RTX 4090 (Ada Lovelace) and RTX 5090 (Blackwell)
+    # 89 = RTX 4090, 90 = RTX 5090 (future-proofing)
+    TORCH_CUDA_ARCH_LIST="8.9;9.0" CUDA_VISIBLE_DEVICES="" python setup.py install && \
     cd / && \
     $HOME/.local/bin/uv pip install --no-cache-dir triton && \
     rm -rf /tmp/SageAttention
