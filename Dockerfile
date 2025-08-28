@@ -36,9 +36,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 # Runtime libraries
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install pyyaml gdown triton comfy-cli jupyterlab jupyterlab-lsp \
-        jupyter-server jupyter-server-terminals \
-        ipykernel jupyterlab_code_formatter
+    pip install pyyaml gdown triton comfy-cli
 
 # ------------------------------------------------------------
 # ComfyUI install
