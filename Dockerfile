@@ -23,12 +23,12 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ln -sf /usr/bin/python3.12 /usr/bin/python && \
     \
     # Create virtual environment with uv
-    /root/.cargo/bin/uv venv /opt/venv --python python3.12 && \
+    uv venv /opt/venv --python python3.12 && \
     \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Use the virtual environment and add uv to PATH
-ENV PATH="/opt/venv/bin:/root/.cargo/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Install PyTorch with uv (faster resolution and installation)
 RUN --mount=type=cache,target=/opt/uv-cache \
