@@ -204,14 +204,6 @@ cd /
 
 SOURCE_DIR="/comfyui-wan/workflows"
 
-# Ensure destination directory exists
-mkdir -p "$WORKFLOW_DIR"
-
-SOURCE_DIR="/comfyui-wan/workflows"
-
-# Ensure destination directory exists
-mkdir -p "$WORKFLOW_DIR"
-
 # Loop over each subdirectory in the source directory
 for dir in "$SOURCE_DIR"/*/; do
     # Skip if no directories match (empty glob)
