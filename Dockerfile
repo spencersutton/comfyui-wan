@@ -59,23 +59,25 @@ RUN --mount=type=cache,target=/opt/uv-cache \
 # ------------------------------------------------------------
 ENV TORCH_CUDA_ARCH_LIST="8.9;9.0"
 
-RUN --mount=type=cache,target=/opt/uv-cache \
-    --mount=type=cache,target=/tmp/sage-build-cache \
-    git clone https://github.com/thu-ml/SageAttention.git /tmp/sage-build-cache/SageAttention || \
-    (cd /tmp/sage-build-cache/SageAttention && git pull) && \
-    cp -r /tmp/sage-build-cache/SageAttention /tmp/SageAttention && \
-    cd /tmp/SageAttention && \
-    # Override compute_capabilities using the cleaner GitHub solution
-    sed -i "/compute_capabilities = set()/a compute_capabilities = {\"8.9\", \"9.0\"}" setup.py && \
-    uv pip install . --no-build-isolation && \
-    cd / && \
-    rm -rf /tmp/SageAttention
+WORKDIR /tmp/sage-build-cache
+RUN --mount=type=cache,target=/tmp/sage-build-cache \
+    git clone https://github.com/thu-ml/SageAttention.git SageAttention || \
+    (cd SageAttention && git pull)
+
+WORKDIR /tmp
+RUN cp -r /tmp/sage-build-cache/SageAttention .
+
+WORKDIR /tmp/SageAttention
+RUN sed -i "/compute_capabilities = set()/a compute_capabilities = {\"8.9\", \"9.0\"}" setup.py && \
+    uv pip install . --no-build-isolation
+
+WORKDIR /
+RUN rm -rf /tmp/SageAttention
 
 # ------------------------------------------------------------
 # ComfyUI install (cached layer)
 # ------------------------------------------------------------
-RUN --mount=type=cache,target=/opt/uv-cache \
-    /usr/bin/yes | comfy --workspace /ComfyUI install --nvidia
+RUN /usr/bin/yes | comfy --workspace /ComfyUI install --nvidia
 
 # ------------------------------------------------------------
 # Custom nodes repositories list (separate layer for better caching)
@@ -112,10 +114,10 @@ RUN echo "ssitu/ComfyUI_UltimateSDUpscale.git" > /tmp/repos.txt && \
 # ------------------------------------------------------------
 # Custom nodes installation (optimized with better caching)
 # ------------------------------------------------------------
+WORKDIR /ComfyUI/custom_nodes
+
 RUN --mount=type=cache,target=/opt/uv-cache \
     --mount=type=cache,target=/tmp/git-cache \
-    cd /ComfyUI/custom_nodes && \
-    \
     # Clone repositories in parallel with persistent cache
     while IFS= read -r repo; do \
         repo_url="https://github.com/${repo}"; \
@@ -166,6 +168,8 @@ RUN --mount=type=cache,target=/opt/uv-cache \
         fi; \
     done < /tmp/repos.txt && \
     rm -f /tmp/all-requirements.txt /tmp/clean-requirements.txt /tmp/repos.txt
+
+WORKDIR /
 
 COPY src/start_script.sh /start_script.sh
 RUN chmod +x /start_script.sh
