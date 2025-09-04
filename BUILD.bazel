@@ -1,0 +1,18 @@
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+
+container_image(
+    name = "wan_image",
+    base = "@runpod_stable_diffusion_comfy_ui_6_0_0//image",
+    files = [
+        "wan2.2_i2v_high_noise_14B_fp16.safetensors",
+        "wan2.2_i2v_low_noise_14B_fp16.safetensors",
+        "wan_2.1_vae.safetensors",
+    ],
+    symlinks = {
+        "wan2.2_i2v_high_noise_14B_fp16.safetensors": "/ComfyUI/models/diffusion_models/wan2.2_i2v_high_noise_14B_fp16.safetensors",
+        "wan2.2_i2v_low_noise_14B_fp16.safetensors": "/ComfyUI/models/diffusion_models/wan2.2_i2v_low_noise_14B_fp16.safetensors",
+        "wan_2.1_vae.safetensors": "/ComfyUI/models/vae/wan_2.1_vae.safetensors",
+    },
+    # Note: Bazel container_image does not support arbitrary RUN commands directly.
+    # For apt-get update, you should create a custom base image or use container_run_and_commit.
+)
