@@ -1,5 +1,7 @@
+
 echo "Building SageAttention in the background"
 (
+	pip install torch
 	git clone https://github.com/thu-ml/SageAttention.git
 	cd SageAttention || exit 1
 	python3 setup.py install
