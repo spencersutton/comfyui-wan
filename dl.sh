@@ -1,4 +1,3 @@
-
 echo "Building SageAttention in the background"
 (
 	pip install torch
